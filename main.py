@@ -8,6 +8,6 @@ bot.read_dataframes()
 bot.process()
 bot.report()
 bot.archive()
-bot.telegpush(chat_id=123456789)
+bot.telegpush(chat_id=-557696002)
 
 print(datetime.now() - start)

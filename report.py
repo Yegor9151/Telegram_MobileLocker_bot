@@ -26,7 +26,7 @@ class Report:
     def save_users(self):
         for os in self.os_list:
             for event in self.event_list:
-                self.join[os, event] = pd.merge(self.events[os, event], self.fraud[os, event], how="left", on=["AppsFlyer ID"])
+                self.join[os, event] = pd.merge(self.events[os, event], self.fraud[os, event], how="left", on=["AppsFlyer_ID"])
 
                 # Сохраняем объединенную таблицу Пользователей
                 path = self.direction + f'/{os}_{event}.xlsx'
@@ -54,15 +54,15 @@ class Report:
                     a1.to_excel(self.direction + f'/{os}_{x}_{event}_All_UniqueUsers.xlsx', index = False)
 
                     #сохраняем фродовых пользователей
-                    a2 = a1[a1['Fraud Reason'].notna()]
+                    a2 = a1[a1['Fraud_Reason'].notna()]
                     a2.to_excel(self.direction + f'/{os}_{x}_{event}_Fraud_UniqueUsers.xlsx', index = False)
 
                     #сохраняем фродовых пользователей (органика)
-                    a2o = a1[a1['Rejected Reason Value'] == 'organic']
+                    a2o = a1[a1['Rejected_Reason_Value'] == 'organic']
                     a2o.to_excel(self.direction + f'/{os}_{x}_{event}_OrganicFraud_UniqueUsers.xlsx', index = False)
 
                     #сохраняем нефродовых пользователей 
-                    a3 = a1[a1['Fraud Reason'].isna()]
+                    a3 = a1[a1['Fraud_Reason'].isna()]
                     a3.to_excel(self.direction + f'/{os}_{x}_{event}_Clean_UniqueUsers.xlsx', index = False)
 
                     #Сохраняем данные в сводную таблицу
