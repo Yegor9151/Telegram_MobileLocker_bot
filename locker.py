@@ -157,6 +157,35 @@ class Locker_bot:
         
         print('report collected\n')
 
+    def split_reports(self):
+        for direction in os.listdir('./result/'):
+            src_path = f'./result/{direction}'
+
+            # collect all files in mb
+            files_size = {file: os.stat(f'{src_path}/{file}').st_size / (1024 ** 2) for file in os.listdir(src_path)}
+
+            # split on parts
+            dir_size = sum(files_size.values())
+            parts = int(dir_size // 50) + 1
+
+            # gen parts
+            if parts > 1:
+                for p in range(parts):
+                    os.mkdir(f'{src_path}_part{p+1}')
+
+                part = 1
+                all_size = 0
+                for file, size in files_size.items():
+
+                    all_size += size
+                    if all_size > 50:
+                        part += 1
+                        all_size = 0
+
+                    os.replace(f'{src_path}/{file}', f'{src_path}_part{part}/{file}')
+
+                os.rmdir(src_path)
+
     def archive(self):
         for direct in os.listdir('./result/'):
             path = f'./result/{direct}'
@@ -171,8 +200,6 @@ class Locker_bot:
         for file in os.listdir('./result/'):
             if '.zip' in file:
                 path = './result/' + file
-                print(path, os.stat(path).st_size, 'mb')
-
                 file = {'document': open(path, 'rb')}
                 requests.post(f'https://api.telegram.org/bot{self.__TOKEN}/sendDocument?chat_id={chat_id}', files=file)
 
