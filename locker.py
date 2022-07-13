@@ -8,6 +8,7 @@ from datetime import date, timedelta
 
 import re
 import os
+import json
 import shutil
 import requests
 import pandas as pd
@@ -17,13 +18,14 @@ warnings.filterwarnings('ignore')
 
 class Locker_bot:
 
-    def __init__(self, period: tuple[str, str]|list[str], token) -> None:
+    def __init__(self, period: tuple[str, str]|list[str], tg_token, af_token, bq_token) -> None:
 
         self.__PERIOD = period
         self.__period_cut = period[0], str(date(*map(int, period[1].split('-'))) + timedelta(days=1))
 
-        self.__TOKEN = read_file(token)
-        self.__BigClient = bigquery.Client.from_service_account_json('../keys/bq_token.json')
+        self.__TG_TOKEN = read_file(tg_token)
+        self.__AF_TOKEN = json.loads(read_file(af_token))['appsflyer_api_key']
+        self.__BigClient = bigquery.Client.from_service_account_json(bq_token)
 
         self.__PATHS_TO_SOURCES = {
             'ru android fraud': f'./data/{self.__PERIOD[1]}/ru/ru.ligastavok.android-mob2_fraud-post-inapps_{self.__PERIOD[0]}_{self.__PERIOD[1]}_Europe_Moscow.csv',
@@ -67,18 +69,24 @@ class Locker_bot:
 
         return query
 
-    def read_dataframes(self):
+    def read_evetns(self):
+        self.__SOURCE_DATAFRAMES['ru android event'] = self.__BigClient.query(self.__events_query(ru=True, android=True)).result().to_dataframe().drop_duplicates()
+        self.__SOURCE_DATAFRAMES['ru ios event'] = self.__BigClient.query(self.__events_query(ru=True, android=False)).result().to_dataframe().drop_duplicates()
+        self.__SOURCE_DATAFRAMES['all android event'] = self.__BigClient.query(self.__events_query(ru=False, android=True)).result().to_dataframe().drop_duplicates()
+        self.__SOURCE_DATAFRAMES['all ios event'] = self.__BigClient.query(self.__events_query(ru=False, android=False)).result().to_dataframe().drop_duplicates()
+
+        return self.__SOURCE_DATAFRAMES
+
+    def read_frauds(self):
 
         def drop_cols(df):
             to_drop = [
-                'Language', 'Original URL', 'Event Revenue RUB', 
-                'Retargeting Conversion Type', 'Reengagement Window', 
-                'Event Revenue Currency', 'App Name', 'User Agent', 'HTTP Referrer', 
-                'Device Model', 'SDK Version', 'OS Version', 'State', 'IP', 
-                'Postal Code', 'Customer User ID', 'Android ID', 'Advertising ID', 
-                'IDFV', 'IDFA', 'App Version', 'Event Value', 'Event Revenue', 
-                'Platform', 'Operator', 'Region', 'City', 'Is Retargeting', 
-                'Is Primary Attribution', 'Device Category']
+                'Language', 'Original URL', 'Event Revenue RUB', 'Retargeting Conversion Type', 'Reengagement Window', 
+                'Event Revenue Currency', 'App Name', 'User Agent', 'HTTP Referrer', 'Device Model', 'SDK Version', 'OS Version', 
+                'State', 'IP', 'Postal Code', 'Customer User ID', 'Android ID', 'Advertising ID', 'IDFV', 'IDFA', 'App Version', 
+                'Event Value', 'Event Revenue', 'Platform', 'Operator', 'Region', 'City', 'Is Retargeting', 'Is Primary Attribution', 
+                'Device Category'
+            ]
 
             df = df.drop(to_drop, axis=1)
             for col in ('Fraud Sub Reason', 'Store Product Page'):
@@ -87,26 +95,17 @@ class Locker_bot:
 
             return df
 
-        # Remember sources dataframes
-        self.__SOURCE_DATAFRAMES['ru android event'] = self.__BigClient.query(self.__events_query(ru=True, android=True)).result().to_dataframe().drop_duplicates()
-        self.__SOURCE_DATAFRAMES['ru ios event'] = self.__BigClient.query(self.__events_query(ru=True, android=False)).result().to_dataframe().drop_duplicates()
-        self.__SOURCE_DATAFRAMES['all android event'] = self.__BigClient.query(self.__events_query(ru=False, android=True)).result().to_dataframe().drop_duplicates()
-        self.__SOURCE_DATAFRAMES['all ios event'] = self.__BigClient.query(self.__events_query(ru=False, android=False)).result().to_dataframe().drop_duplicates()
-
         self.__SOURCE_DATAFRAMES['ru android fraud'] = drop_cols(pd.read_csv(self.__PATHS_TO_SOURCES['ru android fraud']))
         self.__SOURCE_DATAFRAMES['ru ios fraud'] = drop_cols(pd.read_csv(self.__PATHS_TO_SOURCES['ru ios fraud']))
         self.__SOURCE_DATAFRAMES['all android fraud'] = drop_cols(pd.read_csv(self.__PATHS_TO_SOURCES['all android fraud']))
         self.__SOURCE_DATAFRAMES['all ios fraud'] = drop_cols(pd.read_csv(self.__PATHS_TO_SOURCES['all ios fraud']))
 
-        # Timely
-        for df in self.__SOURCE_DATAFRAMES.values():
-            df.columns = df.columns.str.replace(' ', '_')
-
-        print('dataframes readed\n')
-
         return self.__SOURCE_DATAFRAMES
 
     def process(self):
+
+        for df in self.__SOURCE_DATAFRAMES.values():
+            df.columns = df.columns.str.replace(' ', '_')
 
         dfs_ru = (
             self.__SOURCE_DATAFRAMES['ru android event'], self.__SOURCE_DATAFRAMES['ru ios event'],
@@ -135,8 +134,6 @@ class Locker_bot:
         for proc in (self.__RESULT_DATAFRAMES.values()):
             print(proc.get_dataframe()[0]['Android', 'ftd1'].shape)
 
-        print('data processed\n')
-
         return self.__RESULT_DATAFRAMES
 
     def report(self):
@@ -154,8 +151,6 @@ class Locker_bot:
             report.save_partner_result()
             report.save_plots()
             report.save_pivot()
-        
-        print('report collected\n')
 
     def split_reports(self):
         for direction in os.listdir('./result/'):
@@ -192,17 +187,13 @@ class Locker_bot:
             shutil.make_archive(path, 'zip', path)
             print(path)
 
-        print('directions archived\n')
-
     def telegpush(self, chat_id):
-        requests.post(f'https://api.telegram.org/bot{self.__TOKEN}/sendMessage?chat_id={chat_id}&text=Загружаю файлы...')
+        requests.post(f'https://api.telegram.org/bot{self.__TG_TOKEN}/sendMessage?chat_id={chat_id}&text=Загружаю файлы...')
 
         for file in os.listdir('./result/'):
             if '.zip' in file:
                 path = './result/' + file
                 file = {'document': open(path, 'rb')}
-                requests.post(f'https://api.telegram.org/bot{self.__TOKEN}/sendDocument?chat_id={chat_id}', files=file)
+                requests.post(f'https://api.telegram.org/bot{self.__TG_TOKEN}/sendDocument?chat_id={chat_id}', files=file)
 
-        requests.post(f'https://api.telegram.org/bot{self.__TOKEN}/sendMessage?chat_id={chat_id}&text=Готово')
-
-        print('report pushed')
+        requests.post(f'https://api.telegram.org/bot{self.__TG_TOKEN}/sendMessage?chat_id={chat_id}&text=Готово')
