@@ -1,7 +1,7 @@
 # Custom libs
 from process import Processor
 from report import Report
-from utils import create_dir, read_file
+from utils import create_dir, open_file
 
 from google.cloud import bigquery
 from datetime import date, timedelta
@@ -18,20 +18,28 @@ warnings.filterwarnings('ignore')
 
 class Locker_bot:
 
-    def __init__(self, period: tuple[str, str]|list[str], tg_token, af_token, bq_token) -> None:
+    def __init__(self, period: tuple[str, str]|list[str], tg_token: str, af_token: str, bq_token: str) -> None:
+        """Main class for create a telegram bot that generate report for mobile closeing.
+        Need tokens: telegram, appsflyer and bigquery
+
+        Params:
+            :period - date for report from - to
+            :tg_token - path to token for telegram - name.txt
+            :af_token - path to token for appsflyer - name.json
+            :bq_token - path to token for bigquery - name.json"""
 
         self.__PERIOD = period
         self.__period_cut = period[0], str(date(*map(int, period[1].split('-'))) + timedelta(days=1))
 
-        self.__TG_TOKEN = read_file(tg_token)
-        self.__AF_TOKEN = json.loads(read_file(af_token))['appsflyer_api_key']
+        self.__TG_TOKEN = open_file(tg_token)
+        self.__AF_TOKEN = json.loads(open_file(af_token))['appsflyer_api_key']
         self.__BigClient = bigquery.Client.from_service_account_json(bq_token)
 
         self.__PATHS_TO_SOURCES = {
-            'ru android fraud': f'./data/{self.__PERIOD[1]}/ru/ru.ligastavok.android-mob2_fraud-post-inapps_{self.__PERIOD[0]}_{self.__PERIOD[1]}_Europe_Moscow.csv',
-            'ru ios fraud': f'./data/{self.__PERIOD[1]}/ru/id1065803457_fraud-post-inapps_{self.__PERIOD[0]}_{self.__PERIOD[1]}_UTC.csv',
-            'all android fraud': f'./data/{self.__PERIOD[1]}/all/ru.ligastavok.android-mob2_fraud-post-inapps_{self.__PERIOD[0]}_{self.__PERIOD[1]}_Europe_Moscow.csv',
-            'all ios fraud': f'./data/{self.__PERIOD[1]}/all/id1065803457_fraud-post-inapps_{self.__PERIOD[0]}_{self.__PERIOD[1]}_UTC.csv'
+            'ru android fraud': f'./data/{self.__PERIOD[1]}/ru/ru.ligastavok.android-mob2_fraud-post-inapps_{self.__PERIOD[0]}_{self.__PERIOD[1]}.csv',
+            'ru ios fraud': f'./data/{self.__PERIOD[1]}/ru/id1065803457_fraud-post-inapps_{self.__PERIOD[0]}_{self.__PERIOD[1]}.csv',
+            'all android fraud': f'./data/{self.__PERIOD[1]}/all/ru.ligastavok.android-mob2_fraud-post-inapps_{self.__PERIOD[0]}_{self.__PERIOD[1]}.csv',
+            'all ios fraud': f'./data/{self.__PERIOD[1]}/all/id1065803457_fraud-post-inapps_{self.__PERIOD[0]}_{self.__PERIOD[1]}.csv'
         }
         self.__SOURCE_DATAFRAMES = {}
         self.__RESULT_DATAFRAMES = {}
@@ -48,52 +56,93 @@ class Locker_bot:
             'all imgs old': f'./result/ALL_imgs_{self.__PERIOD[0]}_{self.__PERIOD[1]}_OLD'
         }
 
-    def get_source_dataframes(self):
+    def get_source_dataframes(self) -> dict:
+        """return variable with source data"""
         return self.__SOURCE_DATAFRAMES
 
-    def get_result_dataframes(self):
+    def get_result_dataframes(self) -> dict:
+        """return variable with result data"""
         return self.__RESULT_DATAFRAMES
 
-    def __events_query(self, ru=True, android=True):
-        pratform = {
-            'android': 'ruligastavokandroid_mob2', 
-            'ios': 'id1065803457'
-        }
+    def create_dirs(self) -> None:
+        """create root directions for sources and results"""
 
-        query = read_file('./events.sql')
-        query = re.sub('<period0>', self.__period_cut[0], query)
-        query = re.sub('<period1>', self.__period_cut[1], query)
-        query = re.sub('<platform>', pratform['android' if android else 'ios'], query)
-        if ru:
-            query += 'AND Country_Code = "RU"'
+        create_dir('./data')
+        create_dir(f'./data/{self.__PERIOD[1]}')
+        create_dir(f'./data/{self.__PERIOD[1]}/all')
+        create_dir(f'./data/{self.__PERIOD[1]}/ru')
 
-        return query
+        create_dir('./result')
 
-    def read_evetns(self):
-        self.__SOURCE_DATAFRAMES['ru android event'] = self.__BigClient.query(self.__events_query(ru=True, android=True)).result().to_dataframe().drop_duplicates()
-        self.__SOURCE_DATAFRAMES['ru ios event'] = self.__BigClient.query(self.__events_query(ru=True, android=False)).result().to_dataframe().drop_duplicates()
-        self.__SOURCE_DATAFRAMES['all android event'] = self.__BigClient.query(self.__events_query(ru=False, android=True)).result().to_dataframe().drop_duplicates()
-        self.__SOURCE_DATAFRAMES['all ios event'] = self.__BigClient.query(self.__events_query(ru=False, android=False)).result().to_dataframe().drop_duplicates()
+    def read_evetns(self) -> dict:
+        """read bigquery to collect events data
+        
+        Return: variable with source data"""
+
+        def events_query(platform: str, ru: bool=True) -> str:
+            """assemble query
+
+            Params:
+                :ru - regions if True then 'ru' else 'all'
+                :android - platforf if True then 'android' else 'ios'
+            Return: sql query"""
+
+            query = open_file('./events.sql')
+            query = re.sub('<period0>', self.__period_cut[0], query)
+            query = re.sub('<period1>', self.__period_cut[1], query)
+            query = re.sub('<platform>', platform, query)
+            if ru:
+                query += 'AND Country_Code = "RU"'
+
+            return query
+
+        PLATFORM = ('ruligastavokandroid_mob2', 'id1065803457')
+        self.__SOURCE_DATAFRAMES['ru android event'] = self.__BigClient.query(events_query(PLATFORM[0], ru=True)).result().to_dataframe().drop_duplicates()
+        self.__SOURCE_DATAFRAMES['ru ios event'] = self.__BigClient.query(events_query(PLATFORM[1], ru=True)).result().to_dataframe().drop_duplicates()
+        self.__SOURCE_DATAFRAMES['all android event'] = self.__BigClient.query(events_query(PLATFORM[0], ru=False)).result().to_dataframe().drop_duplicates()
+        self.__SOURCE_DATAFRAMES['all ios event'] = self.__BigClient.query(events_query(PLATFORM[1], ru=False)).result().to_dataframe().drop_duplicates()
 
         return self.__SOURCE_DATAFRAMES
 
     def read_frauds(self):
 
+        def read_appsflyer(platform: str, region: str, rows : int=10_000) -> None:
+            URL = f"https://hq.appsflyer.com/export/{platform}/fraud-post-inapps/v5?" + \
+                f"api_token={self.__AF_TOKEN}&" + \
+                f"from={self.__PERIOD[0]}&" + \
+                f"to={self.__PERIOD[1]}&" + \
+                "timezone=Europe%2fMoscow&" + \
+                "event_name=conversionStep_[registration]_success,ftd1,ftd2,dep300,std1&" + \
+                f"additional_fields=match_type,rejected_reason,rejected_reason_value,detection_date,fraud_reason&" + \
+                f"maximum_rows={rows}"
+
+            resp = requests.get(URL)
+            path = f'./data/{self.__PERIOD[1]}/{region}/{platform}_fraud-post-inapps_{self.__PERIOD[0]}_{self.__PERIOD[1]}.csv'
+
+            open_file(path, 'w', text=resp.text)
+
         def drop_cols(df):
             to_drop = [
-                'Language', 'Original URL', 'Event Revenue RUB', 'Retargeting Conversion Type', 'Reengagement Window', 
-                'Event Revenue Currency', 'App Name', 'User Agent', 'HTTP Referrer', 'Device Model', 'SDK Version', 'OS Version', 
+                'Language', 'Original URL', 'Is Receipt Validated', 'Retargeting Conversion Type', 'Reengagement Window', 
+                'Event Revenue Currency', 'App Name', 'User Agent', 'HTTP Referrer', 'SDK Version', 'OS Version', 
                 'State', 'IP', 'Postal Code', 'Customer User ID', 'Android ID', 'Advertising ID', 'IDFV', 'IDFA', 'App Version', 
                 'Event Value', 'Event Revenue', 'Platform', 'Operator', 'Region', 'City', 'Is Retargeting', 'Is Primary Attribution', 
-                'Device Category'
+                'Keywords', 'Sub Site ID', 'Sub Param 1', 'Sub Param 2', 'Sub Param 3', 'Sub Param 4',
+                'Sub Param 5', 'WIFI', 'Device Type', 'Bundle ID'
             ]
 
             df = df.drop(to_drop, axis=1)
-            for col in ('Fraud Sub Reason', 'Store Product Page'):
+            for col in ('Fraud Sub Reason', 'Store Product Page', 'Event Revenue RUB', 'Event Revenue USD', 'Device Model', 'Device Category'):
                 if col in df.columns:
                     df = df.drop([col], axis=1)
 
             return df
+
+        PLATFORM = ('ru.ligastavok.android-mob2', 'id1065803457')
+        read_appsflyer(PLATFORM[0], 'ru')
+        read_appsflyer(PLATFORM[0], 'all')
+        read_appsflyer(PLATFORM[1], 'ru')
+        read_appsflyer(PLATFORM[1], 'all')
 
         self.__SOURCE_DATAFRAMES['ru android fraud'] = drop_cols(pd.read_csv(self.__PATHS_TO_SOURCES['ru android fraud']))
         self.__SOURCE_DATAFRAMES['ru ios fraud'] = drop_cols(pd.read_csv(self.__PATHS_TO_SOURCES['ru ios fraud']))
@@ -137,8 +186,6 @@ class Locker_bot:
         return self.__RESULT_DATAFRAMES
 
     def report(self):
-        create_dir('./result')
-
         report_new_ru = Report(*self.__RESULT_DATAFRAMES['new_ru'].get_dataframe(), self.__PATH_TO_REPORTS['ru report new'], self.__PATH_TO_REPORTS['ru imgs new'])
         report_old_ru = Report(*self.__RESULT_DATAFRAMES['old_ru'].get_dataframe(),  self.__PATH_TO_REPORTS['ru report old'], self.__PATH_TO_REPORTS['ru imgs old'])
         report_new_all = Report(*self.__RESULT_DATAFRAMES['new_all'].get_dataframe(), self.__PATH_TO_REPORTS['all report new'], self.__PATH_TO_REPORTS['all imgs new'])
