@@ -13,4 +13,5 @@
 - locker.py - have the Locker_bot class
 - process.py - have the class for process data
 - report.py - have the class for generate reports of process
-- utils.py - additional custom scripts for another classes 
+- utils.py - additional custom scripts for another classes
+- events.sql - query for collect events
