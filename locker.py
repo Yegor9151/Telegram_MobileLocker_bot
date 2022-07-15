@@ -57,11 +57,11 @@ class Locker_bot:
         }
 
     def get_source_dataframes(self) -> dict:
-        """return variable with source data"""
+        """Return: dict with source dataframes"""
         return self.__SOURCE_DATAFRAMES
 
     def get_result_dataframes(self) -> dict:
-        """return variable with result data"""
+        """Return: dict with result dataframes"""
         return self.__RESULT_DATAFRAMES
 
     def create_dirs(self) -> None:
@@ -77,7 +77,7 @@ class Locker_bot:
     def read_evetns(self) -> dict:
         """read bigquery to collect events data
         
-        Return: variable with source data"""
+        Return: dict with source dataframes"""
 
         def events_query(platform: str, ru: bool=True) -> str:
             """assemble query
@@ -104,9 +104,19 @@ class Locker_bot:
 
         return self.__SOURCE_DATAFRAMES
 
-    def read_frauds(self):
+    def read_frauds(self) -> dict:
+        """read appsflyer to collect fraud data
+        
+        Return: dict with source dataframes"""
 
         def read_appsflyer(platform: str, region: str, rows : int=10_000) -> None:
+            """collect data about fraud from appsflyer
+            
+            Params:
+                :platform - platform name in appsflyer
+                :region - part of path for to saver date
+                :rows - how much rows to reserve"""
+
             URL = f"https://hq.appsflyer.com/export/{platform}/fraud-post-inapps/v5?" + \
                 f"api_token={self.__AF_TOKEN}&" + \
                 f"from={self.__PERIOD[0]}&" + \
@@ -114,14 +124,23 @@ class Locker_bot:
                 "timezone=Europe%2fMoscow&" + \
                 "event_name=conversionStep_[registration]_success,ftd1,ftd2,dep300,std1&" + \
                 f"additional_fields=match_type,rejected_reason,rejected_reason_value,detection_date,fraud_reason&" + \
-                f"maximum_rows={rows}"
+                f"maximum_rows={rows}&"
+
+            if region == 'ru':
+                URL += 'country_code=ru&'
 
             resp = requests.get(URL)
             path = f'./data/{self.__PERIOD[1]}/{region}/{platform}_fraud-post-inapps_{self.__PERIOD[0]}_{self.__PERIOD[1]}.csv'
 
             open_file(path, 'w', text=resp.text)
 
-        def drop_cols(df):
+        def drop_cols(df) -> pd.DataFrame:
+            """drop extra columns for speed up and size down
+            
+            Params:
+                :df - source dataframe
+            Return: clean dataframe"""
+
             to_drop = [
                 'Language', 'Original URL', 'Is Receipt Validated', 'Retargeting Conversion Type', 'Reengagement Window', 
                 'Event Revenue Currency', 'App Name', 'User Agent', 'HTTP Referrer', 'SDK Version', 'OS Version', 
@@ -151,7 +170,10 @@ class Locker_bot:
 
         return self.__SOURCE_DATAFRAMES
 
-    def process(self):
+    def process(self) -> dict:
+        """process data - split on new & old attribute, split on events, drop duplicates
+        
+        Return: dict with result dataframes"""
 
         for df in self.__SOURCE_DATAFRAMES.values():
             df.columns = df.columns.str.replace(' ', '_')
@@ -181,7 +203,8 @@ class Locker_bot:
             proc.drop_duplicates()
 
         for proc in (self.__RESULT_DATAFRAMES.values()):
-            print(proc.get_dataframe()[0]['Android', 'ftd1'].shape)
+            print('events:', proc.get_dataframe()[0]['Android', 'ftd1'].shape)
+            # print('fraud:', proc.get_dataframe()[0]['Android', 'ftd1'].shape)
 
         return self.__RESULT_DATAFRAMES
 
