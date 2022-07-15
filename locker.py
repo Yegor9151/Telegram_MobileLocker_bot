@@ -208,7 +208,9 @@ class Locker_bot:
 
         return self.__RESULT_DATAFRAMES
 
-    def report(self):
+    def report(self) -> None:
+        """create and save reports users, partners, events, result, plots, pivot"""
+
         report_new_ru = Report(*self.__RESULT_DATAFRAMES['new_ru'].get_dataframe(), self.__PATH_TO_REPORTS['ru report new'], self.__PATH_TO_REPORTS['ru imgs new'])
         report_old_ru = Report(*self.__RESULT_DATAFRAMES['old_ru'].get_dataframe(),  self.__PATH_TO_REPORTS['ru report old'], self.__PATH_TO_REPORTS['ru imgs old'])
         report_new_all = Report(*self.__RESULT_DATAFRAMES['new_all'].get_dataframe(), self.__PATH_TO_REPORTS['all report new'], self.__PATH_TO_REPORTS['all imgs new'])
@@ -222,7 +224,9 @@ class Locker_bot:
             report.save_plots()
             report.save_pivot()
 
-    def split_reports(self):
+    def split_reports(self) -> None:
+        """split results on parts of 50mb, for load data in telegram chat"""
+
         for direction in os.listdir('./result/'):
             src_path = f'./result/{direction}'
 
@@ -251,13 +255,21 @@ class Locker_bot:
 
                 os.rmdir(src_path)
 
-    def archive(self):
+    def archive(self) -> None:
+        """archives data for load in telegram"""
+
         for direct in os.listdir('./result/'):
             path = f'./result/{direct}'
             shutil.make_archive(path, 'zip', path)
             print(path)
 
-    def telegpush(self, chat_id):
+    def telegpush(self, chat_id) -> bool:
+        """push data in telegram iteratively
+        
+        Params:
+            :chat_id - id chat where will be send
+        Return: True if all is done"""
+
         requests.post(f'https://api.telegram.org/bot{self.__TG_TOKEN}/sendMessage?chat_id={chat_id}&text=Загружаю файлы...')
 
         for file in os.listdir('./result/'):
@@ -267,3 +279,5 @@ class Locker_bot:
                 requests.post(f'https://api.telegram.org/bot{self.__TG_TOKEN}/sendDocument?chat_id={chat_id}', files=file)
 
         requests.post(f'https://api.telegram.org/bot{self.__TG_TOKEN}/sendMessage?chat_id={chat_id}&text=Готово')
+
+        return True
