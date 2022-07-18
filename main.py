@@ -1,25 +1,38 @@
+import chat_ids
+import requests
+
 from utils import last_month
 from locker import Locker_bot
 from datetime import datetime
-import chat_id
 
 
-start = datetime.now()
-period = tuple(map(str, last_month()))
-print(period)
+CHAT_ID = chat_ids.TEST1
+PERIOD_OF_REPORT = tuple(map(str, last_month()))
+TG_TOKEN = '../keys/tg_locker.txt'
+
+print(PERIOD_OF_REPORT)
+
+start_time = datetime.now()
 
 bot = Locker_bot(
-    period=period,
-    tg_token='../keys/tg_locker.txt',
+    chat_id=CHAT_ID,
+    period=PERIOD_OF_REPORT,
+    tg_token=TG_TOKEN,
     bq_token='../keys/bq_token.json',
     af_token='../keys/af_token.json'
 )
 bot.create_dirs()
 print('directions created\n')
+
+# Collect data
+bot.send_message('Собираю данные...')
 bot.read_evetns()
 print('events readed\n')
 bot.read_frauds()
 print('fraud readed\n')
+
+# Assembling report
+bot.send_message('Собираю отчет...')
 bot.process()
 print('data processed\n')
 bot.report()
@@ -28,7 +41,11 @@ bot.split_reports()
 print('report splited\n')
 bot.archive()
 print('report archived\n')
-bot.telegpush(chat_id=chat_id.TEST1)
-print('report pushed\n')
 
-print('time of work:', datetime.now() - start)
+# Pushing report
+bot.send_message('Загружаю файлы...')
+bot.send_documents('./result')
+bot.send_message(f'Готово!\nВремя выполнения: {datetime.now() - start_time}')
+
+print('report pushed\n')
+print('time of work:', datetime.now() - start_time)

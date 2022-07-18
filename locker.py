@@ -18,16 +18,18 @@ warnings.filterwarnings('ignore')
 
 class Locker_bot:
 
-    def __init__(self, period: tuple[str, str]|list[str], tg_token: str, af_token: str, bq_token: str) -> None:
+    def __init__(self, chat_id: int, period: tuple[str, str]|list[str], tg_token: str, af_token: str, bq_token: str) -> None:
         """Main class for create a telegram bot that generate report for mobile closeing.
         Need tokens: telegram, appsflyer and bigquery
 
         Params:
+            :chat_id - id chat in telegram
             :period - date for report from - to
             :tg_token - path to token for telegram - name.txt
             :af_token - path to token for appsflyer - name.json
             :bq_token - path to token for bigquery - name.json"""
 
+        self.__CHAT_ID = chat_id
         self.__PERIOD = period
         self.__period_cut = period[0], str(date(*map(int, period[1].split('-'))) + timedelta(days=1))
 
@@ -263,21 +265,20 @@ class Locker_bot:
             shutil.make_archive(path, 'zip', path)
             print(path)
 
-    def telegpush(self, chat_id) -> bool:
+    def send_documents(self, files_dir) -> bool:
         """push data in telegram iteratively
         
         Params:
-            :chat_id - id chat where will be send
+            :files_dir - direction with files to upload in telegram chat
         Return: True if all is done"""
 
-        requests.post(f'https://api.telegram.org/bot{self.__TG_TOKEN}/sendMessage?chat_id={chat_id}&text=Загружаю файлы...')
-
-        for file in os.listdir('./result/'):
+        for file in os.listdir(files_dir):
             if '.zip' in file:
                 path = './result/' + file
                 file = {'document': open(path, 'rb')}
-                requests.post(f'https://api.telegram.org/bot{self.__TG_TOKEN}/sendDocument?chat_id={chat_id}', files=file)
-
-        requests.post(f'https://api.telegram.org/bot{self.__TG_TOKEN}/sendMessage?chat_id={chat_id}&text=Готово')
+                requests.post(f'https://api.telegram.org/bot{self.__TG_TOKEN}/sendDocument?chat_id={self.__CHAT_ID}', files=file)
 
         return True
+
+    def send_message(self, text: str) -> None:
+        requests.post(f'https://api.telegram.org/bot{self.__TG_TOKEN}/sendMessage?chat_id={self.__CHAT_ID}&text={text}')
