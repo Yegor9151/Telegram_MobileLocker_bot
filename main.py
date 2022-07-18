@@ -1,12 +1,15 @@
+from utils import last_month
 from locker import Locker_bot
 from datetime import datetime
 import chat_id
 
 
 start = datetime.now()
+period = tuple(map(str, last_month()))
+print(period)
 
 bot = Locker_bot(
-    period=('2022-06-01', '2022-06-30'), 
+    period=period,
     tg_token='../keys/tg_locker.txt',
     bq_token='../keys/bq_token.json',
     af_token='../keys/af_token.json'
