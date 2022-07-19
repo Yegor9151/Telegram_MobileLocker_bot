@@ -1,12 +1,11 @@
 import chat_ids
-import requests
 
 from utils import last_month
 from locker import Locker_bot
 from datetime import datetime
 
 
-CHAT_ID = chat_ids.TEST1
+CHAT_ID = chat_ids.CHAT
 PERIOD_OF_REPORT = tuple(map(str, last_month()))
 TG_TOKEN = '../keys/tg_locker.txt'
 
@@ -25,14 +24,13 @@ bot.create_dirs()
 print('directions created\n')
 
 # Collect data
-bot.send_message('Собираю данные...')
+bot.send_message(f'Собираю данные для отчета...\nпериод c {PERIOD_OF_REPORT[0]} до {PERIOD_OF_REPORT[1]}')
 bot.read_evetns()
 print('events readed\n')
 bot.read_frauds()
 print('fraud readed\n')
 
 # Assembling report
-bot.send_message('Собираю отчет...')
 bot.process()
 print('data processed\n')
 bot.report()
