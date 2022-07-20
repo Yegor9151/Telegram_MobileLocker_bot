@@ -1,11 +1,12 @@
 import chat_ids
+import shutil
 
 from utils import last_month
 from locker import Locker_bot
 from datetime import datetime
 
 
-CHAT_ID = chat_ids.CHAT
+CHAT_ID = chat_ids.TEST1
 PERIOD_OF_REPORT = tuple(map(str, last_month()))
 TG_TOKEN = '../keys/tg_locker.txt'
 
@@ -47,3 +48,6 @@ bot.send_message(f'Готово!\nВремя выполнения: {datetime.now
 
 print('report pushed\n')
 print('time of work:', datetime.now() - start_time)
+
+shutil.rmtree('./data')
+shutil.rmtree('./result')
