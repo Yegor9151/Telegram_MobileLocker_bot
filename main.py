@@ -1,16 +1,19 @@
 import chat_ids
 import shutil
+import json
 
 from utils import last_month
 from locker import Locker_bot
 from datetime import datetime
+from utils import open_file
 
 
 CHAT_ID = chat_ids.TEST1
 PERIOD_OF_REPORT = tuple(map(str, last_month()))
-TG_TOKEN = '../keys/tg_locker.txt'
 
-print(PERIOD_OF_REPORT)
+TG_TOKEN = open_file('../keys/tg_locker.txt')
+BQ_TOKEN = '../keys/bq_token.json'
+AF_TOKEN = json.loads(open_file('../keys/af_token.json'))['appsflyer_api_key']
 
 start_time = datetime.now()
 
@@ -18,8 +21,8 @@ bot = Locker_bot(
     chat_id=CHAT_ID,
     period=PERIOD_OF_REPORT,
     tg_token=TG_TOKEN,
-    bq_token='../keys/bq_token.json',
-    af_token='../keys/af_token.json'
+    bq_token=BQ_TOKEN,
+    af_token=AF_TOKEN
 )
 bot.create_dirs()
 print('directions created\n')
@@ -46,7 +49,7 @@ bot.send_message('Загружаю файлы...')
 bot.send_documents('./result')
 bot.send_message(f'Готово!\nВремя выполнения: {datetime.now() - start_time}')
 
-print('report pushed\n')
+# print('report pushed\n')
 print('time of work:', datetime.now() - start_time)
 
 shutil.rmtree('./data')

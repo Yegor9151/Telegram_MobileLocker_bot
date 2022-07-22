@@ -2,6 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from utils import create_dir
 
+
 class Report:
     
     def __init__(self, events, eventsa, fraud, frauda, direction, direction_img):

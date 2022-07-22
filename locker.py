@@ -33,13 +33,14 @@ class Locker_bot:
         self.__PERIOD = period
         self.__period_cut = period[0], str(date(*map(int, period[1].split('-'))) + timedelta(days=1))
 
-        self.__TG_TOKEN = open_file(tg_token)
-        self.__AF_TOKEN = json.loads(open_file(af_token))['appsflyer_api_key']
+        self.__TG_TOKEN = tg_token
+        self.__AF_TOKEN = af_token
         self.__BigClient = bigquery.Client.from_service_account_json(bq_token)
 
         self.__PATHS_TO_SOURCES = {
             'ru android fraud': f'./data/{self.__PERIOD[1]}/ru/ru.ligastavok.android-mob2_fraud-post-inapps_{self.__PERIOD[0]}_{self.__PERIOD[1]}.csv',
             'ru ios fraud': f'./data/{self.__PERIOD[1]}/ru/id1065803457_fraud-post-inapps_{self.__PERIOD[0]}_{self.__PERIOD[1]}.csv',
+            
             'all android fraud': f'./data/{self.__PERIOD[1]}/all/ru.ligastavok.android-mob2_fraud-post-inapps_{self.__PERIOD[0]}_{self.__PERIOD[1]}.csv',
             'all ios fraud': f'./data/{self.__PERIOD[1]}/all/id1065803457_fraud-post-inapps_{self.__PERIOD[0]}_{self.__PERIOD[1]}.csv'
         }
@@ -82,7 +83,7 @@ class Locker_bot:
         Return: dict with source dataframes"""
 
         def events_query(platform: str, ru: bool=True) -> str:
-            """assemble query
+            """assemble query to different platforms and region (ru, all)
 
             Params:
                 :ru - regions if True then 'ru' else 'all'
@@ -131,7 +132,7 @@ class Locker_bot:
             if region == 'ru':
                 URL += 'country_code=ru&'
 
-            resp = requests.get(URL)
+            resp = requests.get(URL, verify=False)
             path = f'./data/{self.__PERIOD[1]}/{region}/{platform}_fraud-post-inapps_{self.__PERIOD[0]}_{self.__PERIOD[1]}.csv'
 
             open_file(path, 'w', text=resp.text)
@@ -276,9 +277,9 @@ class Locker_bot:
             if '.zip' in file:
                 path = './result/' + file
                 file = {'document': open(path, 'rb')}
-                requests.post(f'https://api.telegram.org/bot{self.__TG_TOKEN}/sendDocument?chat_id={self.__CHAT_ID}', files=file)
+                requests.post(f'https://api.telegram.org/bot{self.__TG_TOKEN}/sendDocument?chat_id={self.__CHAT_ID}', files=file, verify=False)
 
         return True
 
     def send_message(self, text: str) -> None:
-        requests.post(f'https://api.telegram.org/bot{self.__TG_TOKEN}/sendMessage?chat_id={self.__CHAT_ID}&text={text}')
+        requests.post(f'https://api.telegram.org/bot{self.__TG_TOKEN}/sendMessage?chat_id={self.__CHAT_ID}&text={text}', verify=False)
