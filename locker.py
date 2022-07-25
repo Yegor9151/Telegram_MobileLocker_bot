@@ -8,7 +8,6 @@ from datetime import date, timedelta
 
 import re
 import os
-import json
 import shutil
 import requests
 import pandas as pd
@@ -281,5 +280,5 @@ class Locker_bot:
 
         return True
 
-    def send_message(self, text: str) -> None:
+    def send_message(self, text) -> None:
         requests.post(f'https://api.telegram.org/bot{self.__TG_TOKEN}/sendMessage?chat_id={self.__CHAT_ID}&text={text}', verify=False)
