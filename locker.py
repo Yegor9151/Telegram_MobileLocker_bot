@@ -17,7 +17,7 @@ warnings.filterwarnings('ignore')
 
 class Locker_bot:
 
-    def __init__(self, chat_id: int, period: tuple[str, ...], tg_token: str, af_token: str, bq_token: str) -> None:
+    def __init__(self, chat_id, period, tg_token, af_token, bq_token) -> None:
         """Main class for create a telegram bot that generate report for mobile closeing.
         Need tokens: telegram, appsflyer and bigquery
 
