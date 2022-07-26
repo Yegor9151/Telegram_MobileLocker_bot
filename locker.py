@@ -66,15 +66,18 @@ class Locker_bot:
         """Return: dict with result dataframes"""
         return self.__RESULT_DATAFRAMES
 
-    def create_dirs(self) -> None:
-        """create root directions for sources and results"""
+    def create_dirs(self, root='./') -> None:
+        """create root directions for sources and results
+        
+        Params:
+            :root - directory where was create systems"""
 
-        create_dir('./data')
-        create_dir(f'./data/{self.__PERIOD[1]}')
-        create_dir(f'./data/{self.__PERIOD[1]}/all')
-        create_dir(f'./data/{self.__PERIOD[1]}/ru')
+        create_dir(root + 'data')
+        create_dir(root + f'data/{self.__PERIOD[1]}')
+        create_dir(root + f'data/{self.__PERIOD[1]}/all')
+        create_dir(root + f'data/{self.__PERIOD[1]}/ru')
 
-        create_dir('./result')
+        create_dir(root + f'result')
 
     def read_evetns(self) -> dict:
         """read bigquery to collect events data
